@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Opta QuantBet AI — Analista Cuantitativo de Value Bets (+EV)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/styles.css?v=7" />
+</head>
+<body>
+  <div class="app-shell">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-logo">QB</div>
+        <div>
+          <div class="brand-title">Opta QuantBet AI</div>
+          <div class="brand-sub">Dixon-Coles · xG · Kelly</div>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <button class="nav-item active" data-tab="today">
+          <span class="nav-icon">🎯</span>
+          <span>Radar del Día (+EV)</span>
+        </button>
+        <button class="nav-item" data-tab="live">
+          <span class="nav-icon">🔴</span>
+          <span>En Vivo (Wplay Live)</span>
+        </button>
+        <button class="nav-item" data-tab="builder">
+          <span class="nav-icon">🎟️</span>
+          <span>Armador Wplay (1-Clic)</span>
+        </button>
+        <button class="nav-item" data-tab="specials-fb">
+          <span class="nav-icon">🚩</span>
+          <span>Especiales Fútbol (Opta)</span>
+        </button>
+        <button class="nav-item" data-tab="specials-nba">
+          <span class="nav-icon">🏀</span>
+          <span>Props &amp; Especiales NBA</span>
+        </button>
+        <button class="nav-item" data-tab="lab">
+          <span class="nav-icon">🧮</span>
+          <span>Analizador Manual</span>
+        </button>
+        <button class="nav-item" data-tab="ratings">
+          <span class="nav-icon">📊</span>
+          <span>Ratings xG por Liga</span>
+        </button>
+        <button class="nav-item" data-tab="history">
+          <span class="nav-icon">📈</span>
+          <span>Historial &amp; CLV</span>
+        </button>
+        <button class="nav-item" data-tab="backtest">
+          <span class="nav-icon">🧪</span>
+          <span>Backtest &amp; Calibración</span>
+        </button>
+        <button class="nav-item" data-tab="settings">
+          <span class="nav-icon">⚙️</span>
+          <span>Ajustes &amp; Bankroll</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-card">
+        <div class="sc-label">BANKROLL ACTUAL</div>
+        <div class="sc-value" id="sb-bankroll">$20.000 COP</div>
+        <div class="sc-meta" id="sb-kelly">1/4 Kelly · Tope 2% ($400 COP)</div>
+      </div>
+
+      <div class="sidebar-card">
+        <div class="sc-label">FUENTE DE CUOTAS</div>
+        <div class="sc-status" id="sb-source">Wplay.co Colombia + ESPN / Opta xG</div>
+        <button class="btn btn-primary btn-block" id="btn-sync">
+          🔄 Actualizar Datos Ahora
+        </button>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;font-size:12px;color:#cbd5e1">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin:0">
+            <input type="checkbox" id="chk-auto-30s" checked style="width:auto;accent-color:#10b981" />
+            <span>⚡ Auto 30s</span>
+          </label>
+          <span id="auto-sync-timer" class="mono" style="color:#10b981;font-weight:700">30s</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main area -->
+    <main class="main">
+      <!-- Topbar -->
+      <header class="topbar">
+        <div>
+          <h1 id="page-title">Radar Diario de Value Bets (+EV)</h1>
+          <p class="subtitle" id="page-subtitle">Escaneo cuantitativo de las 5 grandes ligas europeas · Zona horaria Colombia (UTC-5)</p>
+        </div>
+        <div class="topbar-stats">
+          <div class="stat-pill">
+            <span class="sp-label">Partidos</span>
+            <span class="sp-val" id="top-matches">—</span>
+          </div>
+          <div class="stat-pill stat-pill-emerald">
+            <span class="sp-label">Oportunidades +EV</span>
+            <span class="sp-val" id="top-value">—</span>
+          </div>
+          <div class="stat-pill">
+            <span class="sp-label">Umbral EV</span>
+            <span class="sp-val" id="top-minev">≥ 3.0%</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- TAB 1: RADAR DEL DÍA -->
+      <section class="tab-panel active" id="tab-today">
+        <div id="round-banner" class="alert-banner hidden"></div>
+
+        <!-- ACCESO RÁPIDO AL ARMADOR DE BOLETO WPLAY -->
+        <div class="alert-banner" style="display:flex;justify-content:space-between;align-items:center;gap:16px;background:rgba(16,185,129,0.12);border-color:rgba(16,185,129,0.45)">
+          <div>
+            <strong>🎟️ ¿Quieres armar tu Parlay / Sencilla para Wplay.co automáticamente?</strong>
+            <span style="color:#cbd5e1;margin-left:6px">Elige 1, 2, 3 o 4 patas, ventana de 24h y tu monto ($29.000 COP).</span>
+          </div>
+          <button type="button" class="btn btn-primary" id="btn-goto-builder" style="white-space:nowrap">
+            🎟️ Abrir Armador Wplay (1-Clic) →
+          </button>
+        </div>
+
+        <div class="filters-bar">
+          <div class="filter-group">
+            <label>📅 Fecha del Partido (Colombia)</label>
+            <select id="filter-date">
+              <option value="ALL">Todas las fechas</option>
+              <option value="TODAY">⚡ Solo Hoy</option>
+              <option value="TOMORROW">⏭️ Solo Mañana</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label>Competición</label>
+            <select id="filter-league">
+              <option value="ALL">Todas las competiciones (Fútbol + NBA)</option>
+              <option value="NBA">🏀 NBA Baloncesto (EE. UU.)</option>
+              <option value="COL1">🇨🇴 Colombia · Liga BetPlay &amp; Copa Colombia</option>
+              <option value="MEX1">🇲🇽 México · Liga MX</option>
+              <option value="ARG1">🇦🇷 Argentina · Liga Profesional</option>
+              <option value="BRA1">🇧🇷 Brasil · Brasileirão Serie A</option>
+              <option value="CHI1">🇨🇱 Chile · Primera División</option>
+              <option value="ECU1">🇪🇨 Ecuador · LigaPro Serie A</option>
+              <option value="PER1">🇵🇪 Perú · Liga 1</option>
+              <option value="USA1">🇺🇸 EE. UU. · MLS</option>
+              <option value="INTL_ALL">🌎 Selecciones &amp; Ligas de América</option>
+              <option value="CLUB_ALL">🏆 Solo 5 Grandes Ligas Europeas</option>
+              <option value="INT_FR">🌍 Amistosos Internacionales FIFA</option>
+              <option value="UEFA_NL">🇪🇺 UEFA Nations League</option>
+              <option value="CONC_NL">🌎 CONCACAF Nations League</option>
+              <option value="E0">🏴 Premier League</option>
+              <option value="SP1">🇪🇸 LaLiga</option>
+              <option value="I1">🇮🇹 Serie A</option>
+              <option value="D1">🇩🇪 Bundesliga</option>
+              <option value="F1">🇫🇷 Ligue 1</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label>Filtro de Valor y Probabilidad</label>
+            <select id="filter-signal">
+              <option value="ALL">Todos los partidos</option>
+              <option value="SWEET_SPOT">🔥 Alta Probabilidad (≥ 53%) + Buena Cuota (≥ 1.75)</option>
+              <option value="HIGH_PROB">🛡️ Más Seguras (Probabilidad Real ≥ 58%)</option>
+              <option value="VALUE">💎 Solo Value Bets (EV ≥ umbral)</option>
+              <option value="POSITIVE">➕ EV Positivo (> 0%)</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label>Mercado</label>
+            <select id="filter-market">
+              <option value="ALL">Mejor selección del partido</option>
+              <option value="1x2">Fútbol · Ganador (1X2)</option>
+              <option value="ou25">Fútbol · Over / Under 2.5</option>
+              <option value="btts">Fútbol · Ambos Marcan</option>
+              <option value="ah">Fútbol · Hándicap Asiático</option>
+              <option value="moneyline">🏀 NBA · Ganador (Moneyline)</option>
+              <option value="spread">🏀 NBA · Hándicap (Spread)</option>
+              <option value="total">🏀 NBA · Total de Puntos (O/U)</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label>Buscar equipo</label>
+            <input type="text" id="filter-search" placeholder="Ej. Arsenal, Real Madrid, Inter..." />
+          </div>
+        </div>
+
+        <div id="matches-grid" class="matches-grid"></div>
+      </section>
+
+      <!-- TAB 1A: APUESTAS EN VIVO (WPLAY LIVE) -->
+      <section class="tab-panel" id="tab-live">
+        <div id="live-nba-box" style="margin-bottom:20px"></div>
+        <div class="card">
+          <div class="card-header-flex">
+            <div>
+              <h2 class="card-title">🔴 Radar de Apuestas EN VIVO (Tiempo Real desde Wplay.co)</h2>
+              <p class="card-desc">
+                Partidos que se están jugando en este preciso instante en Fútbol y Baloncesto, con marcador en directo, minuto, cuotas en vivo, probabilidad real sin vig y botón directo para apostar en Wplay.co.
+              </p>
+            </div>
+            <button type="button" class="btn btn-primary" id="btn-refresh-live">🔄 Refrescar En Vivo</button>
+          </div>
+          <div id="live-grid" class="matches-grid"></div>
+        </div>
+      </section>
+
+      <!-- TAB 1B: ARMADOR DE COMBINADAS WPLAY (1-CLIC) -->
+      <section class="tab-panel" id="tab-builder">
+        <div class="card">
+          <div class="card-header-flex">
+            <div>
+              <h2 class="card-title">🎟️ Armador Automático de Boleto Wplay.co (Sin Riesgo de Bloqueo)</h2>
+              <p class="card-desc">
+                Elige tu estrategia, el monto en pesos colombianos (COP) y el número de patas. El motor selecciona automáticamente las mejores apuestas verificadas en Wplay.co (solo una por partido) y te da el enlace directo y el botón exacto que debes tocar en tu ventana de Wplay.
+              </p>
+            </div>
+          </div>
+
+          <div class="filters-bar" style="margin-bottom:16px">
+            <div class="filter-group">
+              <label>📅 Fecha del Partido (Colombia)</label>
+              <select id="bld-date">
+                <option value="TODAY" selected>⚡ Solo Hoy</option>
+                <option value="TOMORROW">⏭️ Solo Mañana</option>
+                <option value="ALL">📅 Todas las fechas</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label>🎯 Tipo de Mercado / Especiales</label>
+              <select id="bld-market">
+                <option value="ALL">🔥 Todos (Principales + Especiales + NBA)</option>
+                <option value="MAIN_FB">⚽ Fútbol · Mercados Principales (1X2, O/U, BTTS, AH)</option>
+                <option value="FB_CORNERS">🚩 Fútbol Especial · Solo Tiros de Esquina (Córners)</option>
+                <option value="FB_SOT">🎯 Fútbol Especial · Solo Tiros al Arco (SOT)</option>
+                <option value="FB_FOULS">🛑 Fútbol Especial · Sección de Faltas Cometidas</option>
+                <option value="FB_CARDS">🟨 Fútbol Especial · Solo Tarjetas Disciplinarias</option>
+                <option value="NBA_MAIN">🏀 NBA · Ganador, Hándicap (Spread) y Total Puntos</option>
+                <option value="NBA_PTS">⛹️‍♂️ NBA Especial · Puntos por Jugador</option>
+                <option value="NBA_REB">💪 NBA Especial · Rebotes por Jugador</option>
+                <option value="NBA_AST">👟 NBA Especial · Asistencias por Jugador</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label>Estrategia de Boleto</label>
+              <select id="bld-mode">
+                <option value="SAFE">🛡️ Máxima Probabilidad (Las más seguras con valor)</option>
+                <option value="SWEET">🔥 Equilibrada (Alta Probabilidad ≥ 55% + Buena Cuota)</option>
+                <option value="VALUE">💎 Máximo Valor Matemático (+EV puro)</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label>Número de Selecciones (Patas)</label>
+              <select id="bld-legs">
+                <option value="1">1 Pata (Apuesta Sencilla)</option>
+                <option value="2" selected>2 Patas (Parlay Doble — Recomendado)</option>
+                <option value="3">3 Patas (Parlay Triple)</option>
+                <option value="4">4 Patas (Parlay Cuádruple)</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label>Importe a Apostar en Wplay (COP)</label>
+              <input type="number" id="bld-stake" step="1000" min="1000" value="29000" />
+            </div>
+          </div>
+
+          <div id="builder-output"></div>
+        </div>
+      </section>
+
+      <!-- TAB ESPECIALES FÚTBOL (CÓRNERS, TIROS AL ARCO, FALTAS, TARJETAS Y COMBINADAS ESPECIALES) -->
+      <section class="tab-panel" id="tab-specials-fb">
+        <div class="card">
+          <div class="card-header-flex">
+            <div>
+              <h2 class="card-title">🚩 Centro de Mercados Especiales de Fútbol (Datos Opta / Poisson)</h2>
+              <p class="card-desc">
+                Elige el tipo de apuesta especial en el desplegable para ver el ranking de todos los partidos ordenados por mayor probabilidad real, además de un generador de Combinadas Especiales (Crear Apuesta / Parlay de Props).
+              </p>
+            </div>
+          </div>
+
+          <div class="filters-bar" style="margin-bottom:16px">
+            <div class="filter-group">
+              <label>📅 Fecha del Partido (Colombia)</label>
+              <select id="sfb-date">
+                <option value="ALL">Todas las fechas</option>
+                <option value="TODAY">⚡ Solo Hoy</option>
+                <option value="TOMORROW">⏭️ Solo Mañana</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label>Tipo de Apuesta Especial</label>
+              <select id="sfb-type">
+                <option value="CORNERS">🚩 Solo Tiros de Esquina (Córners)</option>
+                <option value="SOT">🎯 Solo Tiros al Arco (SOT - Shots on Target)</option>
+                <option value="FOULS">🛑 Sección de Faltas Cometidas</option>
+                <option value="CARDS">🟨 Solo Tarjetas Disciplinarias</option>
+                <option value="COMBO">🔥 Combinadas Especiales (Mismo Partido &amp; Parlay Especial)</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label>Competición</label>
+              <select id="sfb-league">
+                <option value="ALL">Todas las ligas de Fútbol</option>
+                <option value="COL1">🇨🇴 Colombia · Liga BetPlay &amp; Copa</option>
+                <option value="MEX1">🇲🇽 México · Liga MX</option>
+                <option value="ARG1">🇦🇷 Argentina · Liga Profesional</option>
+                <option value="BRA1">🇧🇷 Brasil · Brasileirão Serie A</option>
+                <option value="CHI1">🇨🇱 Chile · Primera División</option>
+                <option value="ECU1">🇪🇨 Ecuador · LigaPro Serie A</option>
+                <option value="PER1">🇵🇪 Perú · Liga 1</option>
+                <option value="USA1">🇺🇸 EE. UU. · MLS</option>
+                <option value="E0">🏴 Premier League</option>
+                <option value="SP1">🇪🇸 LaLiga</option>
+                <option value="I1">🇮🇹 Serie A</option>
+                <option value="D1">🇩🇪 Bundesliga</option>
+                <option value="F1">🇫🇷 Ligue 1</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label>Ordenar Por</label>
+              <select id="sfb-sort">
+                <option value="HIGH">📈 Mayor Proyección / Probabilidad Over</option>
+                <option value="LOW">📉 Menor Proyección / Probabilidad Under</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label>Buscar Equipo</label>
+              <input type="text" id="sfb-search" placeholder="Ej. Real Madrid, Arsenal, Cali..." />
+            </div>
+          </div>
+
+          <div id="sfb-output"></div>
+        </div>
+      </section>
+
+      <!-- TAB PROPS & ESPECIALES NBA (PUNTOS PARTIDO, MITADES, JUGADORES Y COMBINADAS NBA) -->
+      <section class="tab-panel" id="tab-specials-nba">
+        <!-- MONITOR NBA EN VIVO: DETECTOR DE SOBRE-REACCIÓN (+EV IN-PLAY) -->
+        <div id="snba-live-box" style="margin-bottom:20px"></div>
+        <div class="card">
+          <div class="card-header-flex">
+            <div>
+              <h2 class="card-title">🏀 Centro de Props por Jugador, Puntos y Combinadas Especiales NBA</h2>
+              <p class="card-desc">
+                Despliega el tipo de apuesta de la NBA: Puntos por Jugador, Rebotes, Asistencias, Puntos por Equipo/Cuartos (1Q y 1ra Mitad) o Combinadas Especiales NBA verificadas en Wplay.co.
+              </p>
+            </div>
+          </div>
+
+          <div class="filters-bar" style="margin-bottom:16px">
+            <div class="filter-group">
+              <label>📅 Fecha del Partido (Colombia)</label>
+              <select id="snba-date">
+                <option value="ALL">Todas las fechas</option>
+                <option value="TODAY">⚡ Solo Hoy</option>
+                <option value="TOMORROW">⏭️ Solo Mañana</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label>Tipo de Apuesta Especial NBA</label>
+              <select id="snba-type">
+                <option value="PTS_PLAYER">⛹️‍♂️ Puntos por Jugador (Player Points)</option>
+                <option value="REB_PLAYER">💪 Rebotes por Jugador (Player Rebounds)</option>
+                <option value="AST_PLAYER">👟 Asistencias por Jugador (Player Assists)</option>
+                <option value="GAME_PTS">🏀 Cantidad de Puntos en el Partido, Equipos y Mitades (Q1 / H1)</option>
+                <option value="COMBO_NBA">🔥 Combinadas Especiales NBA (Jugadores + Totales)</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label>Filtrar Partido NBA</label>
+              <select id="snba-match">
+                <option value="ALL">Todos los partidos NBA de hoy</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label>Dirección Recomendada</label>
+              <select id="snba-side">
+                <option value="ALL">Más de (Over) y Menos de (Under)</option>
+                <option value="OVER">⬆️ Solo Más de (Over)</option>
+                <option value="UNDER">⬇️ Solo Menos de (Under)</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label>Buscar Jugador o Equipo</label>
+              <input type="text" id="snba-search" placeholder="Ej. Giannis, Maxey, Lakers, Celtics..." />
+            </div>
+          </div>
+
+          <div id="snba-output"></div>
+        </div>
+      </section>
+
+      <!-- TAB 2: ANALIZADOR MANUAL (CALCULADORA CON CUOTAS DE BETPLAY/WPLAY/RUSHBET) -->
+      <section class="tab-panel" id="tab-lab">
+        <div class="lab-grid">
+          <div class="card">
+            <h2 class="card-title">🧮 Analizador de Partido + Cuotas de tu Casa en Colombia</h2>
+            <p class="card-desc">
+              Selecciona cualquier enfrentamiento de las 5 grandes ligas e introduce las cuotas reales de tu casa (BetPlay, Wplay, Rushbet, Codere, Betsson, Pinnacle). Opta QuantBet AI aplicará el modelo Poisson/Dixon-Coles con xG real, eliminará el vig y calculará el EV y stake exacto en pesos colombianos.
+            </p>
+
+            <form id="form-matchup" class="lab-form">
+              <div class="form-row-3">
+                <div class="field">
+                  <label>Liga</label>
+                  <select id="lab-div" required>
+                    <option value="COL1">🇨🇴 Colombia · Liga BetPlay &amp; Copa</option>
+                    <option value="INT_FR">🌍 Amistosos Internacionales FIFA</option>
+                    <option value="UEFA_NL">🇪🇺 UEFA Nations League</option>
+                    <option value="CONC_NL">🌎 CONCACAF Nations League</option>
+                    <option value="E0">🏴 Premier League</option>
+                    <option value="SP1">🇪🇸 LaLiga</option>
+                    <option value="I1">🇮🇹 Serie A</option>
+                    <option value="D1">🇩🇪 Bundesliga</option>
+                    <option value="F1">🇫🇷 Ligue 1</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label>Equipo Local</label>
+                  <select id="lab-home" required></select>
+                </div>
+                <div class="field">
+                  <label>Equipo Visitante</label>
+                  <select id="lab-away" required></select>
+                </div>
+              </div>
+
+              <div class="odds-input-section">
+                <div class="ois-title">Cuotas 1X2 (Ganador del partido)</div>
+                <div class="form-row-3">
+                  <div class="field">
+                    <label>1 · Local</label>
+                    <input type="number" step="0.01" min="1.01" id="lab-1x2-h" placeholder="Ej. 1.95" />
+                  </div>
+                  <div class="field">
+                    <label>X · Empate</label>
+                    <input type="number" step="0.01" min="1.01" id="lab-1x2-d" placeholder="Ej. 3.50" />
+                  </div>
+                  <div class="field">
+                    <label>2 · Visitante</label>
+                    <input type="number" step="0.01" min="1.01" id="lab-1x2-a" placeholder="Ej. 4.10" />
+                  </div>
+                </div>
+              </div>
+
+              <div class="odds-input-section">
+                <div class="ois-title">Cuotas Over / Under 2.5 Goles y Ambos Marcan (Opcional)</div>
+                <div class="form-row-4">
+                  <div class="field">
+                    <label>Más de 2.5 (Over)</label>
+                    <input type="number" step="0.01" min="1.01" id="lab-ou-o" placeholder="Ej. 1.85" />
+                  </div>
+                  <div class="field">
+                    <label>Menos de 2.5 (Under)</label>
+                    <input type="number" step="0.01" min="1.01" id="lab-ou-u" placeholder="Ej. 1.98" />
+                  </div>
+                  <div class="field">
+                    <label>Ambos Marcan: Sí</label>
+                    <input type="number" step="0.01" min="1.01" id="lab-btts-y" placeholder="Ej. 1.75" />
+                  </div>
+                  <div class="field">
+                    <label>Ambos Marcan: No</label>
+                    <input type="number" step="0.01" min="1.01" id="lab-btts-n" placeholder="Ej. 2.05" />
+                  </div>
+                </div>
+              </div>
+
+              <div class="odds-input-section">
+                <div class="ois-title">Hándicap Asiático (Opcional)</div>
+                <div class="form-row-3">
+                  <div class="field">
+                    <label>Línea Local (ej. -0.5, -0.25, +0.5)</label>
+                    <input type="number" step="0.25" id="lab-ah-line" placeholder="Ej. -0.5" />
+                  </div>
+                  <div class="field">
+                    <label>Cuota Hándicap Local</label>
+                    <input type="number" step="0.01" min="1.01" id="lab-ah-h" placeholder="Ej. 1.92" />
+                  </div>
+                  <div class="field">
+                    <label>Cuota Hándicap Visitante</label>
+                    <input type="number" step="0.01" min="1.01" id="lab-ah-a" placeholder="Ej. 1.94" />
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-actions">
+                <button type="submit" class="btn btn-primary">⚡ Ejecutar Pipeline Opta QuantBet AI</button>
+                <button type="button" class="btn btn-ghost" id="btn-lab-demo">Cargar Ejemplo Con Cuotas</button>
+              </div>
+            </form>
+          </div>
+
+          <div id="lab-result"></div>
+        </div>
+      </section>
+
+      <!-- TAB 3: RATINGS XG POR LIGA -->
+      <section class="tab-panel" id="tab-ratings">
+        <div class="card">
+          <div class="card-header-flex">
+            <div>
+              <h2 class="card-title">📊 Ratings Ofensivos y Defensivos (xG Ajustado por Rival y Recencia)</h2>
+              <p class="card-desc">Fuerza relativa de cada club frente al promedio de su liga (1.00 = promedio). Ataque &gt; 1.00 genera más xG; Defensa &lt; 1.00 concede menos xG.</p>
+            </div>
+            <select id="ratings-div" class="select-inline">
+              <option value="E0">🏴 Premier League</option>
+              <option value="SP1">🇪🇸 LaLiga</option>
+              <option value="I1">🇮🇹 Serie A</option>
+              <option value="D1">🇩🇪 Bundesliga</option>
+              <option value="F1">🇫🇷 Ligue 1</option>
+            </select>
+          </div>
+          <div id="ratings-meta" class="ratings-meta"></div>
+          <div class="table-wrap">
+            <table class="data-table" id="ratings-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Equipo</th>
+                  <th>PJ</th>
+                  <th>Índice Poder</th>
+                  <th>Ataque (ATT)</th>
+                  <th>Defensa (DEF)</th>
+                  <th>xG Favor / 90</th>
+                  <th>xG Contra / 90</th>
+                  <th>Diferencial xG</th>
+                  <th>Goles F / C</th>
+                  <th>Forma (5)</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 4: HISTORIAL & CLV -->
+      <section class="tab-panel" id="tab-history">
+        <div class="kpi-grid" id="history-kpis"></div>
+        <div class="card">
+          <h2 class="card-title">📈 Registro de Picks y Liquidación Automática (CLV &amp; ROI)</h2>
+          <p class="card-desc">Los picks con etiqueta VALUE se registran automáticamente antes del pitazo inicial y se liquidan solos cuando finaliza el encuentro, midiendo el Closing Line Value (CLV).</p>
+          <div class="table-wrap">
+            <table class="data-table" id="history-table">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Liga</th>
+                  <th>Encuentro</th>
+                  <th>Selección</th>
+                  <th>Cuota</th>
+                  <th>P_Real</th>
+                  <th>+EV</th>
+                  <th>Stake (COP)</th>
+                  <th>Estado / Marcador</th>
+                  <th>CLV</th>
+                  <th>P&amp;L (COP)</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 5: BACKTEST & CALIBRACIÓN -->
+      <section class="tab-panel" id="tab-backtest">
+        <div class="card">
+          <div class="card-header-flex">
+            <div>
+              <h2 class="card-title">🧪 Backtest Walk-Forward &amp; Calibración Probabilística</h2>
+              <p class="card-desc">Simulación estricta sin sesgo de anticipación (out-of-sample día a día) sobre las 5 grandes ligas en la temporada actual.</p>
+            </div>
+            <select id="bt-basis" class="select-inline">
+              <option value="best">Evaluar con Mejor Cuota del Mercado (Max)</option>
+              <option value="avg">Evaluar con Cuota Promedio del Mercado (Avg)</option>
+            </select>
+          </div>
+          <div class="kpi-grid" id="bt-kpis"></div>
+          <div class="bt-split">
+            <div>
+              <h3 class="sub-heading">Curva de Calibración (Probabilidad Modelo vs. Frecuencia Real)</h3>
+              <div id="bt-calibration"></div>
+            </div>
+            <div>
+              <h3 class="sub-heading">Últimas Apuestas Simuladas (+EV ≥ Umbral)</h3>
+              <div class="table-wrap bt-table-scroll">
+                <table class="data-table" id="bt-bets-table">
+                  <thead>
+                    <tr>
+                      <th>Fecha</th>
+                      <th>Partido</th>
+                      <th>Pick</th>
+                      <th>Cuota</th>
+                      <th>+EV</th>
+                      <th>Res.</th>
+                      <th>Unid.</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 6: AJUSTES -->
+      <section class="tab-panel" id="tab-settings">
+        <div class="card settings-card">
+          <h2 class="card-title">⚙️ Configuración de Bankroll y Parámetros Cuantitativos</h2>
+          <p class="card-desc">Personaliza tu banca en pesos colombianos (COP), fracción de Kelly y exigencia de valor esperado.</p>
+          <form id="form-settings" class="lab-form">
+            <div class="form-row-3">
+              <div class="field">
+                <label>Bankroll Base (COP)</label>
+                <input type="number" step="500" min="1000" id="set-bankroll" required />
+              </div>
+              <div class="field">
+                <label>Apuesta Mínima de tu Casa (COP)</label>
+                <input type="number" step="100" min="100" id="set-minbet" required />
+              </div>
+              <div class="field">
+                <label>Referencia de Cuota</label>
+                <select id="set-basis">
+                  <option value="best">Mejor cuota disponible (Line Shopping)</option>
+                  <option value="avg">Cuota promedio del mercado (Conservador)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-row-4">
+              <div class="field">
+                <label>Fracción de Kelly (ej. 0.25 = 1/4 Kelly)</label>
+                <input type="number" step="0.05" min="0.05" max="1.0" id="set-kelly" required />
+              </div>
+              <div class="field">
+                <label>Tope Máximo de Stake (% Bankroll)</label>
+                <input type="number" step="0.1" min="0.5" max="5.0" id="set-maxstake" required />
+              </div>
+              <div class="field">
+                <label>Umbral Mínimo para VALUE (% EV)</label>
+                <input type="number" step="0.5" min="0.5" max="20.0" id="set-minev" required />
+              </div>
+              <div class="field">
+                <label>Peso del Modelo xG vs Mercado (0 a 1)</label>
+                <input type="number" step="0.05" min="0.1" max="1.0" id="set-weight" required />
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary">💾 Guardar Parámetros</button>
+              <span id="settings-saved-msg" class="saved-msg"></span>
+            </div>
+          </form>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- MODAL DE FICHA EJECUTIVA OPTA QUANTBET AI -->
+  <div id="match-modal" class="modal-backdrop hidden">
+    <div class="modal-dialog">
+      <button class="modal-close" id="modal-close">✕</button>
+      <div id="modal-body"></div>
+    </div>
+  </div>
+
+  <script src="/static/app.js?v=10"></script>
+</body>
+</html>

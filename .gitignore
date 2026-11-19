@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Entorno Virtual
+.venv/
+venv/
+ENV/
+env/
+
+# Base de datos local SQLite y temporales
+data/*.db
+data/*.db-journal
+check_*.py
+
+# Variables de entorno secretas
+.env
+.env.local
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
