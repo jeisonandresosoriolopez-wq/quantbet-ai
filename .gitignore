@@ -14,6 +14,7 @@ env/
 # Base de datos local SQLite y temporales
 data/*.db
 data/*.db-journal
+data/cache/
 check_*.py
 
 # Variables de entorno secretas
