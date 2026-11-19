@@ -1,5 +1,49 @@
 /* Opta QuantBet AI — Frontend */
 
+let AUTH_TOKEN = localStorage.getItem("quantbet_token") || "";
+
+function showLoginOverlay(msg = "") {
+  const ov = document.getElementById("login-overlay");
+  if (!ov) return;
+  ov.style.display = "flex";
+  const err = document.getElementById("login-error");
+  if (err) {
+    if (msg) {
+      err.textContent = msg;
+      err.style.display = "block";
+    } else {
+      err.style.display = "none";
+    }
+  }
+  const inp = document.getElementById("login-password");
+  if (inp) setTimeout(() => inp.focus(), 50);
+}
+
+function hideLoginOverlay() {
+  const ov = document.getElementById("login-overlay");
+  if (ov) ov.style.display = "none";
+}
+
+const _originalFetch = window.fetch;
+window.fetch = async function (url, options = {}) {
+  options = options || {};
+  options.headers = options.headers || {};
+  if (AUTH_TOKEN) {
+    if (typeof options.headers.set === "function") {
+      options.headers.set("Authorization", `Bearer ${AUTH_TOKEN}`);
+    } else if (Array.isArray(options.headers)) {
+      options.headers.push(["Authorization", `Bearer ${AUTH_TOKEN}`]);
+    } else {
+      options.headers["Authorization"] = `Bearer ${AUTH_TOKEN}`;
+    }
+  }
+  const res = await _originalFetch(url, options);
+  if (res.status === 401 && typeof url === "string" && url.startsWith("/api/") && !url.includes("/api/auth/")) {
+    showLoginOverlay("Sesión expirada o no autorizada. Ingresa tu contraseña.");
+  }
+  return res;
+};
+
 const STATE = {
   meta: null,
   today: null,
@@ -821,6 +865,124 @@ async function loadNbaLiveTracker() {
     });
   } catch (err) {
     console.warn("Error cargando NBA Live Tracker:", err);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Pestaña 5B: Analista Cuantitativo Senior (5 Temporadas + Log Loss / Brier)
+// ---------------------------------------------------------------------------
+async function loadSeniorReport() {
+  const out = document.getElementById("senior-report-output");
+  if (!out) return;
+  out.innerHTML = `<div style="padding:24px;text-align:center;color:#38bdf8">⏳ Ejecutando ingesta de 5 temporadas (football-data.co.uk), validación Walk-Forward y cálculo de Log Loss / Brier / Incertidumbre...</div>`;
+
+  try {
+    const res = await fetch("/api/senior-report?include_5y=true");
+    const d = await res.json();
+    const resExec = (d.resumen_ejecutivo || []).map(l => `<li style="margin-bottom:4px">${l}</li>`).join("");
+    const dq = d.datos_calidad || {};
+    const mm = d.modelo_metricas || {};
+    const h5 = d.hist_5y || {};
+    const rows = d.tabla_oportunidades || [];
+    const risks = (d.riesgos || []).map(r => `<li style="margin-bottom:4px">${r}</li>`).join("");
+
+    const tableRows = rows.length
+      ? rows.map(r => `
+          <tr>
+            <td><strong>${r.evento}</strong><div style="font-size:11px;color:#94a3b8">${r.liga}</div></td>
+            <td><span class="badge" style="background:rgba(56,189,248,0.15);color:#38bdf8">${r.mercado}</span></td>
+            <td class="mono">${(r.p_modelo * 100).toFixed(1)}%</td>
+            <td class="mono">${(r.p_mercado * 100).toFixed(1)}%</td>
+            <td class="mono" style="color:#facc15;font-weight:700">@${r.cuota.toFixed(2)}</td>
+            <td class="mono" style="color:#10b981;font-weight:700">+${r.ev_pct.toFixed(1)}%</td>
+            <td class="mono" style="color:#cbd5e1">±${r.incertidumbre_pct}%</td>
+            <td class="mono" style="font-weight:700">${fmtCOP(r.stake_cop)} <span style="font-size:11px;color:#94a3b8">(${r.stake_pct}%)</span></td>
+          </tr>
+        `).join("")
+      : `<tr><td colspan="8" style="text-align:center;color:#94a3b8;padding:16px">No hay oportunidades que superen el umbral +EV actual en este instante.</td></tr>`;
+
+    out.innerHTML = `
+      <div style="display:grid;gap:16px">
+        <!-- 1. Resumen Ejecutivo -->
+        <div style="background:rgba(15,23,42,0.6);border-left:4px solid #10b981;border-radius:8px;padding:14px 18px">
+          <h3 style="margin:0 0 8px;font-size:15px;color:#10b981">1. Resumen Ejecutivo</h3>
+          <ul style="margin:0;padding-left:18px;font-size:13px;color:#e2e8f0;line-height:1.5">${resExec}</ul>
+        </div>
+
+        <!-- 2 & 3. Datos usados y Métricas del Modelo -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px">
+          <div style="background:rgba(15,23,42,0.6);border:1px solid rgba(148,163,184,0.2);border-radius:8px;padding:14px 18px">
+            <h3 style="margin:0 0 8px;font-size:15px;color:#38bdf8">2. Datos Usados y su Calidad</h3>
+            <div style="font-size:12.5px;color:#cbd5e1;line-height:1.5">
+              <div><strong>Muestra histórica 5A:</strong> ${dq.muestra_5y || "—"}</div>
+              <div style="margin-top:4px"><strong>Con cuotas de cierre:</strong> ${(h5.matches_with_odds || 0).toLocaleString("es-CO")} partidos</div>
+              <div style="margin-top:4px"><strong>Calidad:</strong> ${dq.calidad || ""}</div>
+              <ul style="margin:8px 0 0;padding-left:18px;color:#94a3b8;font-size:12px">
+                ${(dq.fuentes || []).map(f => `<li>${f}</li>`).join("")}
+              </ul>
+            </div>
+          </div>
+
+          <div style="background:rgba(15,23,42,0.6);border:1px solid rgba(148,163,184,0.2);border-radius:8px;padding:14px 18px">
+            <h3 style="margin:0 0 8px;font-size:15px;color:#a855f7">3. Modelo, Calibración y Riesgo</h3>
+            <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;font-size:12.5px">
+              <div style="background:rgba(30,41,59,0.6);padding:8px;border-radius:6px">
+                <div style="font-size:11px;color:#94a3b8">Log Loss 5A (Mercado)</div>
+                <strong class="mono" style="font-size:15px;color:#fff">${mm.log_loss_5y_mercado ?? "—"}</strong>
+              </div>
+              <div style="background:rgba(30,41,59,0.6);padding:8px;border-radius:6px">
+                <div style="font-size:11px;color:#94a3b8">Brier Score (Modelo vs Mkt)</div>
+                <strong class="mono" style="font-size:15px;color:#10b981">${mm.brier_modelo ?? "—"} <span style="font-size:11px;color:#94a3b8">vs ${mm.brier_mercado ?? "—"}</span></strong>
+              </div>
+              <div style="background:rgba(30,41,59,0.6);padding:8px;border-radius:6px">
+                <div style="font-size:11px;color:#94a3b8">Max Drawdown (Backtest)</div>
+                <strong class="mono" style="font-size:15px;color:#f43f5e">${mm.max_drawdown_pct ?? 0}%</strong>
+              </div>
+              <div style="background:rgba(30,41,59,0.6);padding:8px;border-radius:6px">
+                <div style="font-size:11px;color:#94a3b8">Sharpe Ratio / ROI</div>
+                <strong class="mono" style="font-size:15px;color:#38bdf8">${mm.sharpe_ratio ?? 0} / ${mm.roi_backtest_pct ?? 0}%</strong>
+              </div>
+            </div>
+            <div style="font-size:11.5px;color:#94a3b8;margin-top:8px"><strong>Validación:</strong> ${mm.validacion || ""}</div>
+          </div>
+        </div>
+
+        <!-- 4. Tabla de Oportunidades -->
+        <div style="background:rgba(15,23,42,0.6);border:1px solid rgba(148,163,184,0.2);border-radius:8px;padding:14px 18px">
+          <h3 style="margin:0 0 10px;font-size:15px;color:#facc15">4. Oportunidades +EV con Incertidumbre Bayesiana</h3>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Evento</th>
+                  <th>Mercado</th>
+                  <th>P modelo</th>
+                  <th>P mercado</th>
+                  <th>Cuota</th>
+                  <th>EV%</th>
+                  <th>Incertidumbre (IC 95%)</th>
+                  <th>Stake (Kelly)</th>
+                </tr>
+              </thead>
+              <tbody>${tableRows}</tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 5. Riesgos y qué podría invalidar el análisis -->
+        <div style="background:rgba(244,63,94,0.08);border:1px solid rgba(244,63,94,0.3);border-radius:8px;padding:14px 18px">
+          <h3 style="margin:0 0 8px;font-size:15px;color:#f43f5e">5. Riesgos y Qué Podría Invalidar el Análisis</h3>
+          <ul style="margin:0;padding-left:18px;font-size:12.5px;color:#cbd5e1;line-height:1.5">${risks}</ul>
+        </div>
+
+        <!-- 6. Aviso de Responsabilidad -->
+        <div style="background:rgba(30,41,59,0.5);border-radius:8px;padding:10px 14px;font-size:12px;color:#94a3b8;text-align:center">
+          ⚠️ ${d.aviso_responsable}
+        </div>
+      </div>
+    `;
+  } catch (err) {
+    out.innerHTML = `<div style="color:#f43f5e;padding:16px">Error generando reporte Senior: ${err}</div>`;
   }
 }
 
@@ -1758,8 +1920,124 @@ async function initApp() {
   await loadLabTeams(document.getElementById("lab-div").value);
 }
 
-document.addEventListener("DOMContentLoaded", () => {
-  initApp();
+document.addEventListener("DOMContentLoaded", async () => {
+  // Autenticación y Bloqueo
+  const loginForm = document.getElementById("login-form");
+  const btnTogglePwd = document.getElementById("btn-toggle-pwd");
+  const btnLock = document.getElementById("btn-lock");
+  const formChangePwd = document.getElementById("form-change-pwd");
+
+  if (btnTogglePwd) {
+    btnTogglePwd.addEventListener("click", () => {
+      const inp = document.getElementById("login-password");
+      if (inp) inp.type = inp.type === "password" ? "text" : "password";
+    });
+  }
+
+  if (btnLock) {
+    btnLock.addEventListener("click", () => {
+      localStorage.removeItem("quantbet_token");
+      AUTH_TOKEN = "";
+      showLoginOverlay();
+    });
+  }
+
+  if (loginForm) {
+    loginForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const pwd = document.getElementById("login-password")?.value || "";
+      const errBox = document.getElementById("login-error");
+      const btn = document.getElementById("btn-submit-login");
+      if (btn) {
+        btn.textContent = "Verificando...";
+        btn.disabled = true;
+      }
+      try {
+        const res = await _originalFetch("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password: pwd }),
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          AUTH_TOKEN = data.token;
+          localStorage.setItem("quantbet_token", AUTH_TOKEN);
+          document.getElementById("login-password").value = "";
+          hideLoginOverlay();
+          await initApp();
+        } else {
+          if (errBox) {
+            errBox.textContent = data.detail || "Contraseña incorrecta.";
+            errBox.style.display = "block";
+          }
+        }
+      } catch (err) {
+        if (errBox) {
+          errBox.textContent = "Error de conexión con el servidor.";
+          errBox.style.display = "block";
+        }
+      } finally {
+        if (btn) {
+          btn.textContent = "Desbloquear Panel Seguro 🔓";
+          btn.disabled = false;
+        }
+      }
+    });
+  }
+
+  if (formChangePwd) {
+    formChangePwd.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const cur = document.getElementById("pwd-current")?.value || "";
+      const nw = document.getElementById("pwd-new")?.value || "";
+      const msg = document.getElementById("pwd-saved-msg");
+      try {
+        const res = await fetch("/api/auth/change-password", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ current_password: cur, new_password: nw }),
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          AUTH_TOKEN = data.token;
+          localStorage.setItem("quantbet_token", AUTH_TOKEN);
+          if (msg) {
+            msg.textContent = "✓ Contraseña actualizada";
+            msg.style.color = "#10b981";
+          }
+          formChangePwd.reset();
+        } else {
+          if (msg) {
+            msg.textContent = "✗ " + (data.detail || "Error al cambiar clave");
+            msg.style.color = "#f43f5e";
+          }
+        }
+      } catch (err) {
+        if (msg) msg.textContent = "✗ Error de red";
+      }
+    });
+  }
+
+  // Verificar sesión antes de cargar datos
+  let isAuth = false;
+  if (AUTH_TOKEN) {
+    try {
+      const stRes = await _originalFetch("/api/auth/status", {
+        headers: { Authorization: `Bearer ${AUTH_TOKEN}` },
+      });
+      const stData = await stRes.json();
+      isAuth = Boolean(stData.authenticated);
+    } catch {
+      isAuth = false;
+    }
+  }
+
+  if (!isAuth) {
+    showLoginOverlay();
+  } else {
+    hideLoginOverlay();
+    initApp();
+  }
 
   // Navegación por pestañas
   document.querySelectorAll(".nav-item").forEach((btn) => {
@@ -1784,8 +2062,14 @@ document.addEventListener("DOMContentLoaded", () => {
       if (tab === "ratings") loadRatingsTable(document.getElementById("ratings-div").value);
       if (tab === "history") loadHistory();
       if (tab === "backtest") loadBacktest();
+      if (tab === "senior") loadSeniorReport();
     });
   });
+
+  const btnRunSenior = document.getElementById("btn-run-senior");
+  if (btnRunSenior) {
+    btnRunSenior.addEventListener("click", loadSeniorReport);
+  }
 
   const btnRefreshLive = document.getElementById("btn-refresh-live");
   if (btnRefreshLive) {

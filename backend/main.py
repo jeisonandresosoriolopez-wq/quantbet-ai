@@ -7,12 +7,12 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import config, db, service
+from . import auth, config, db, service
 from .sources import odds_api
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
@@ -44,9 +44,38 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Opta QuantBet AI", version="1.0.0", lifespan=lifespan)
 
 
+@app.middleware("http")
+async def auth_middleware(request: Request, call_next):
+    path = request.url.path
+    # Rutas públicas sin autenticación requerida
+    if path.startswith("/api/") and path not in ("/api/auth/login", "/api/auth/status"):
+        auth_header = request.headers.get("Authorization", "")
+        token = ""
+        if auth_header.startswith("Bearer "):
+            token = auth_header[7:].strip()
+        elif "x-auth-token" in request.headers:
+            token = request.headers["x-auth-token"].strip()
+        else:
+            token = request.query_params.get("token", "").strip()
+
+        if not auth.verify_token(token):
+            return JSONResponse(status_code=401, content={"detail": "Acceso protegido. Requiere contraseña de acceso."})
+
+    return await call_next(request)
+
+
 # --------------------------------------------------------------------------- #
 # Modelos de entrada
 # --------------------------------------------------------------------------- #
+class LoginRequest(BaseModel):
+    password: str
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
 class MatchupRequest(BaseModel):
     div: str
     home: str
@@ -71,6 +100,34 @@ class PickCreateRequest(BaseModel):
     stake_pct: float | None = None
     stake_amount: float | None = None
     bookmaker: str | None = None
+
+
+# --------------------------------------------------------------------------- #
+# Endpoints de Autenticación & Seguridad
+# --------------------------------------------------------------------------- #
+@app.post("/api/auth/login")
+def api_auth_login(req: LoginRequest):
+    if not auth.verify_password(req.password):
+        raise HTTPException(status_code=401, detail="Contraseña incorrecta. Por favor verifica e intenta de nuevo.")
+    token = auth.generate_token(req.password)
+    return {"success": True, "token": token}
+
+
+@app.get("/api/auth/status")
+def api_auth_status(request: Request):
+    auth_header = request.headers.get("Authorization", "")
+    token = auth_header[7:].strip() if auth_header.startswith("Bearer ") else request.headers.get("x-auth-token", "")
+    return {"authenticated": auth.verify_token(token)}
+
+
+@app.post("/api/auth/change-password")
+def api_auth_change_password(req: ChangePasswordRequest):
+    if not auth.verify_password(req.current_password):
+        raise HTTPException(status_code=400, detail="La contraseña actual no es correcta.")
+    if len(req.new_password.strip()) < 4:
+        raise HTTPException(status_code=400, detail="La nueva contraseña debe tener al menos 4 caracteres.")
+    token = auth.set_new_password(req.new_password)
+    return {"success": True, "token": token, "message": "Contraseña actualizada exitosamente."}
 
 
 # --------------------------------------------------------------------------- #
@@ -132,6 +189,20 @@ def api_nba_live():
     """Análisis en vivo de partidos NBA con detector de sobre-reacción y valor in-play (+EV)."""
     from .model import nba_live
     return nba_live.analyze_live_nba()
+
+
+@app.get("/api/senior-report")
+def api_senior_report(include_5y: bool = True):
+    """Reporte cuantitativo completo siguiendo el protocolo de Analista Senior (5 temporadas, Log Loss, Brier, Incertidumbre y Riesgos)."""
+    from .model import senior_analyst
+    return senior_analyst.generate_senior_report(include_5y=include_5y)
+
+
+@app.get("/api/tools/historical-5y")
+def api_historical_5y(force: bool = False):
+    """Ingesta de las últimas 5 temporadas de football-data.co.uk con Log Loss y Brier Score de cierre."""
+    from .model import senior_analyst
+    return senior_analyst.compute_5y_historical_benchmark(force=force)
 
 
 @app.get("/api/leagues/{div}/teams")

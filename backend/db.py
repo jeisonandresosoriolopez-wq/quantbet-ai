@@ -92,6 +92,24 @@ def save_settings(new: dict) -> dict:
     return get_settings()
 
 
+def get_setting(key: str, default: str | None = None) -> str | None:
+    with _lock, connect() as conn:
+        row = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
+        if row:
+            try:
+                return json.loads(row["value"])
+            except Exception:
+                return row["value"]
+    return default
+
+
+def set_setting(key: str, val: str) -> None:
+    with _lock, connect() as conn:
+        conn.execute("INSERT INTO settings(key, value) VALUES(?, ?) "
+                     "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                     (key, json.dumps(val)))
+
+
 # --------------------------------------------------------------------------- #
 # Picks
 # --------------------------------------------------------------------------- #

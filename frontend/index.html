@@ -58,6 +58,10 @@
           <span class="nav-icon">🧪</span>
           <span>Backtest &amp; Calibración</span>
         </button>
+        <button class="nav-item" data-tab="senior">
+          <span class="nav-icon">🧠</span>
+          <span>Analista Senior (5A)</span>
+        </button>
         <button class="nav-item" data-tab="settings">
           <span class="nav-icon">⚙️</span>
           <span>Ajustes &amp; Bankroll</span>
@@ -83,6 +87,9 @@
           </label>
           <span id="auto-sync-timer" class="mono" style="color:#10b981;font-weight:700">30s</span>
         </div>
+        <button class="btn btn-secondary btn-block" id="btn-lock" style="border-color:rgba(244,63,94,0.4);color:#f43f5e;font-size:12px;padding:8px;margin-top:12px">
+          🔒 Bloquear / Salir
+        </button>
       </div>
     </aside>
 
@@ -611,6 +618,26 @@
         </div>
       </section>
 
+      <!-- TAB 5B: ANALISTA CUANTITATIVO SENIOR (REPORTE 5 TEMPORADAS + LOG LOSS / BRIER / RIESGOS) -->
+      <section class="tab-panel" id="tab-senior">
+        <div class="card">
+          <div class="card-header-flex">
+            <div>
+              <h2 class="card-title">🧠 Analista Cuantitativo Senior — Auditoría Estadística &amp; 5 Temporadas</h2>
+              <p class="card-desc">
+                Protocolo estricto de calibración (Log Loss, Brier Score, Walk-Forward sin data leakage), ingesta histórica de 5 temporadas (football-data.co.uk), incertidumbre bayesiana, Max Drawdown, Sharpe y evaluación transparente de riesgos.
+              </p>
+            </div>
+            <button type="button" class="btn btn-primary" id="btn-run-senior">🔄 Generar Reporte Senior (5 Temporadas)</button>
+          </div>
+          <div id="senior-report-output">
+            <div style="padding:20px;text-align:center;color:#94a3b8">
+              Haz clic en <strong>"🔄 Generar Reporte Senior (5 Temporadas)"</strong> o espera mientras cargamos el benchmark histórico...
+            </div>
+          </div>
+        </div>
+      </section>
+
       <!-- TAB 6: AJUSTES -->
       <section class="tab-panel" id="tab-settings">
         <div class="card settings-card">
@@ -659,9 +686,48 @@
               <span id="settings-saved-msg" class="saved-msg"></span>
             </div>
           </form>
+
+          <hr style="border:0;border-top:1px solid rgba(148,163,184,0.2);margin:24px 0" />
+          <h2 class="card-title">🔒 Seguridad y Clave de Acceso</h2>
+          <p class="card-desc">Cambia la contraseña que protege tu panel web en internet.</p>
+          <form id="form-change-pwd" class="lab-form" onsubmit="return false;">
+            <div class="form-row-2">
+              <div class="field">
+                <label>Contraseña Actual</label>
+                <input type="password" id="pwd-current" placeholder="Clave actual" required />
+              </div>
+              <div class="field">
+                <label>Nueva Contraseña</label>
+                <input type="password" id="pwd-new" placeholder="Mínimo 4 caracteres" required />
+              </div>
+            </div>
+            <div class="form-actions">
+              <button type="submit" id="btn-save-pwd" class="btn btn-secondary">🔑 Actualizar Contraseña</button>
+              <span id="pwd-saved-msg" class="saved-msg"></span>
+            </div>
+          </form>
         </div>
       </section>
     </main>
+  </div>
+
+  <!-- OVERLAY DE BLOQUEO / LOGIN CON CONTRASEÑA -->
+  <div id="login-overlay" style="display:none;position:fixed;inset:0;background:rgba(10,15,26,0.94);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);z-index:99999;align-items:center;justify-content:center">
+    <div style="background:rgba(30,41,59,0.92);border:1px solid rgba(56,189,248,0.35);box-shadow:0 25px 50px -12px rgba(0,0,0,0.8),0 0 35px rgba(56,189,248,0.2);border-radius:18px;padding:36px;max-width:390px;width:90%;text-align:center">
+      <div style="display:inline-flex;align-items:center;justify-content:center;width:58px;height:58px;border-radius:14px;background:linear-gradient(135deg,#06b6d4,#10b981);color:#fff;font-family:'Outfit',sans-serif;font-weight:800;font-size:24px;margin-bottom:16px;box-shadow:0 8px 16px rgba(16,185,129,0.3)">QB</div>
+      <h2 style="margin:0 0 4px;font-family:'Outfit',sans-serif;font-size:22px;color:#fff">Opta QuantBet AI</h2>
+      <div style="display:inline-block;background:rgba(244,63,94,0.15);border:1px solid rgba(244,63,94,0.3);color:#f43f5e;font-size:11px;font-weight:700;padding:3px 10px;border-radius:12px;margin-bottom:14px">🔒 ACCESO PROTEGIDO</div>
+      <p style="margin:0 0 22px;font-size:13px;color:#94a3b8;line-height:1.45">Introduce tu contraseña personal para acceder al panel cuantitativo y tus análisis de apuestas.</p>
+      
+      <form id="login-form" onsubmit="return false;">
+        <div style="position:relative;margin-bottom:14px">
+          <input type="password" id="login-password" placeholder="Ingresa tu contraseña" style="width:100%;padding:12px 42px 12px 14px;background:rgba(15,23,42,0.85);border:1px solid rgba(148,163,184,0.3);border-radius:8px;color:#fff;font-size:14px;box-sizing:border-box" autofocus />
+          <button type="button" id="btn-toggle-pwd" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:#94a3b8;cursor:pointer;font-size:16px;padding:4px">👁️</button>
+        </div>
+        <div id="login-error" style="display:none;color:#f43f5e;font-size:12px;margin-bottom:14px;padding:8px 12px;background:rgba(244,63,94,0.12);border-radius:6px;border:1px solid rgba(244,63,94,0.25)"></div>
+        <button type="submit" id="btn-submit-login" class="btn btn-primary btn-block" style="padding:12px;font-size:14px;font-weight:700">Desbloquear Panel Seguro 🔓</button>
+      </form>
+    </div>
   </div>
 
   <!-- MODAL DE FICHA EJECUTIVA OPTA QUANTBET AI -->

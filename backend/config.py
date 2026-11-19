@@ -35,6 +35,8 @@ ODDS_API_REGION = os.environ.get("ODDS_API_REGION", "eu").strip() or "eu"
 LOCAL_TZ = os.environ.get("LOCAL_TZ", "America/Bogota")
 SOURCE_TZ = "Europe/London"  # football-data.co.uk publica horas del Reino Unido
 PORT = int(os.environ.get("PORT", "8000"))
+APP_PASSWORD = os.environ.get("APP_PASSWORD", "Pablo2026+").strip()
+SECRET_SALT = os.environ.get("SECRET_SALT", "quantbet-super-secret-salt-2026").strip()
 
 # Ligas y competiciones soportadas.
 LEAGUES = {
