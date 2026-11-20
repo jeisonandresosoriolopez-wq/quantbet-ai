@@ -132,10 +132,21 @@ def analyze(fixture: dict, ratings: Ratings, profiles: dict[str, dict], settings
             odds_age_hours: float | None = None,
             override_lambdas: tuple[float, float] | None = None) -> dict:
     home, away = fixture["home"], fixture["away"]
+    ph, pa = profiles.get(home, {}), profiles.get(away, {})
     lh, la = override_lambdas if override_lambdas else ratings.lambdas(home, away)
     matrix = poisson.score_matrix(lh, la)
     probs = poisson.market_probs(matrix)
     diff = poisson.goal_diff_distribution(matrix)
+
+    # Ajuste por decaimiento temporal (65% fuerza temporada + 35% forma últimos 5 partidos) para Goles y BTTS
+    probs_goals = probs
+    if not override_lambdas and ph.get("last5_n", 0) >= 3 and pa.get("last5_n", 0) >= 3:
+        l5_lh = max(0.25, min(3.8, (ph["last5_gf"] + pa["last5_ga"]) / 2.0))
+        l5_la = max(0.25, min(3.8, (pa["last5_gf"] + ph["last5_ga"]) / 2.0))
+        lh_goals = 0.65 * lh + 0.35 * l5_lh
+        la_goals = 0.65 * la + 0.35 * l5_la
+        probs_goals = poisson.market_probs(poisson.score_matrix(lh_goals, la_goals))
+
     odds = fixture.get("odds") or {}
     basis = settings.get("price_basis", "avg")
     n = min(ratings.n_matches.get(home, 0), ratings.n_matches.get(away, 0))
@@ -145,19 +156,20 @@ def analyze(fixture: dict, ratings: Ratings, profiles: dict[str, dict], settings
     for mk, sels in (("1x2", ["H", "D", "A"]), ("ou25", ["O", "U"])):
         block = odds.get(mk) or {}
         fair = _market_fair(block, sels) if block else None
+        p_src = probs_goals if mk == "ou25" else probs
         for s in sels:
             o, book = _price(block, s, basis)
             name = SEL_NAMES[mk][s]
             if mk == "1x2" and s != "D":
                 name = f"{name} ({home if s == 'H' else away})"
-            selections.append(_selection(mk, s, name, probs[mk][s], fair[s] if fair else None,
+            selections.append(_selection(mk, s, name, p_src[mk][s], fair[s] if fair else None,
                                          o, book, (block.get("best") or {}).get(s), n, settings))
-    # Ambos marcan (sin feed de cuotas gratuito: se muestra cuota justa del modelo)
+    # Ambos marcan
     for s in ("Y", "N"):
         bt = (odds.get("btts") or {})
         fair = _market_fair(bt, ["Y", "N"]) if bt else None
         o, book = _price(bt, s, basis)
-        selections.append(_selection("btts", s, SEL_NAMES["btts"][s], probs["btts"][s],
+        selections.append(_selection("btts", s, SEL_NAMES["btts"][s], probs_goals["btts"][s],
                                      fair[s] if fair else None, o, book, None, n, settings))
     # Hándicap asiático
     ah = odds.get("ah") or {}

@@ -551,13 +551,18 @@ function renderTodayMatches() {
              <span>🏀 Total Proy: <strong>${(m.lambda_home + m.lambda_away).toFixed(1)} pts</strong></span>
              <span>⛹️ Props: <strong>${(m.player_props || []).length} jugadores</strong></span>
            </div>`
-        : fp
+        : (fp
         ? `<div style="font-size:11.5px;color:#94a3b8;display:flex;justify-content:space-between;padding:4px 8px;background:rgba(255,255,255,0.02);border-radius:6px">
              <span>🎯 SOT: <strong>${fp.sot.total}</strong> (${fmtPct(fp.sot.p_over_85, 0)} O8.5)</span>
              <span>🚩 Córners: <strong>${fp.corners.total}</strong> (${fmtPct(fp.corners.p_over_95, 0)} O9.5)</span>
              <span>🛑 Faltas: <strong>${fp.fouls.total}</strong></span>
            </div>`
-        : "";
+        : "") + (((!isNBA && (m.profiles?.home?.last5_n || 0) >= 3 && (m.profiles?.away?.last5_n || 0) >= 3))
+        ? `<div style="font-size:11px;color:#38bdf8;display:flex;justify-content:space-between;padding:4px 8px;background:rgba(56,189,248,0.06);border-radius:6px;margin-top:4px">
+             <span>📊 Últ. 5 Loc: <strong>${m.profiles.home.last5_ov25}/${m.profiles.home.last5_n} +2.5</strong> · ${m.profiles.home.last5_btts}/${m.profiles.home.last5_n} BTTS</span>
+             <span>Vis: <strong>${m.profiles.away.last5_ov25}/${m.profiles.away.last5_n} +2.5</strong> · ${m.profiles.away.last5_btts}/${m.profiles.away.last5_n} BTTS</span>
+           </div>`
+        : "");
       const probBarHTML = isNBA
         ? `<div class="prob-bar" style="grid-template-columns:repeat(2,1fr)">
              <div class="prob-cell">1 Local (${m.home})<strong>${fmtPct(p1x2.H)}</strong></div>
@@ -1041,6 +1046,19 @@ function buildMatchPoolForBuilder(m, mktFilter) {
     for (const s of m.selections || []) {
       if (s.odds && s.odds >= 1.25 && s.odds <= 2.75) {
         pool.push(s);
+      }
+    }
+  } else if (mktFilter === "FB_GOALS_BTTS" && !isNBA) {
+    for (const s of m.selections || []) {
+      if (s.market === "ou25" || s.market === "btts") {
+        const effOdds = s.odds || (s.p_real >= 0.52 ? +(0.94 / s.p_real).toFixed(2) : null);
+        if (effOdds && effOdds >= 1.22 && effOdds <= 2.75) {
+          pool.push({
+            ...s,
+            odds: effOdds,
+            ev: s.ev !== null && s.ev !== undefined ? s.ev : (s.p_real * effOdds - 1.0),
+          });
+        }
       }
     }
   }

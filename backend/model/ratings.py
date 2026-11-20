@@ -156,9 +156,28 @@ def team_profile(team: str, matches: list[dict], as_of: datetime) -> dict:
     if all(m.get("hxg") is not None for m in last5):
         l5_xgd = sum((m["hxg"] - m["axg"]) if m["home"] == team else (m["axg"] - m["hxg"])
                      for m in last5) / len(last5)
+
+    l5_n = len(last5)
+    l5_gf_sum, l5_ga_sum, l5_ov25, l5_btts = 0, 0, 0, 0
+    for m in last5:
+        is_h = m["home"] == team
+        gf_m = m["fthg"] if is_h else m["ftag"]
+        ga_m = m["ftag"] if is_h else m["fthg"]
+        l5_gf_sum += gf_m
+        l5_ga_sum += ga_m
+        if (gf_m + ga_m) > 2:
+            l5_ov25 += 1
+        if gf_m >= 1 and ga_m >= 1:
+            l5_btts += 1
+
     prof = {
         "team": team, "played": n,
         "goals_for": round(acc["g_for"] / n, 2), "goals_against": round(acc["g_ag"] / n, 2),
+        "last5_n": l5_n,
+        "last5_gf": round(l5_gf_sum / l5_n, 2) if l5_n else 0.0,
+        "last5_ga": round(l5_ga_sum / l5_n, 2) if l5_n else 0.0,
+        "last5_ov25": l5_ov25,
+        "last5_btts": l5_btts,
         "shots_for": round(acc["sh_for"] / n, 1), "shots_against": round(acc["sh_ag"] / n, 1),
         "sot_for": round(acc["sot_for"] / n, 1), "sot_against": round(acc["sot_ag"] / n, 1),
         "corners_for": round(acc["cor_for"] / cor_n, 2) if cor_n else 5.1,
