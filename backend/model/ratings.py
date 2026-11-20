@@ -159,6 +159,8 @@ def team_profile(team: str, matches: list[dict], as_of: datetime) -> dict:
 
     l5_n = len(last5)
     l5_gf_sum, l5_ga_sum, l5_ov25, l5_btts = 0, 0, 0, 0
+    l5_cor_f, l5_cor_a, l5_cor_n = 0, 0, 0
+    l5_sot_f, l5_sot_a, l5_sot_n = 0, 0, 0
     for m in last5:
         is_h = m["home"] == team
         gf_m = m["fthg"] if is_h else m["ftag"]
@@ -169,6 +171,14 @@ def team_profile(team: str, matches: list[dict], as_of: datetime) -> dict:
             l5_ov25 += 1
         if gf_m >= 1 and ga_m >= 1:
             l5_btts += 1
+        if m.get("hc") is not None and m.get("ac") is not None:
+            l5_cor_f += m["hc"] if is_h else m["ac"]
+            l5_cor_a += m["ac"] if is_h else m["hc"]
+            l5_cor_n += 1
+        if m.get("hst") is not None and m.get("ast") is not None:
+            l5_sot_f += m["hst"] if is_h else m["ast"]
+            l5_sot_a += m["ast"] if is_h else m["hst"]
+            l5_sot_n += 1
 
     prof = {
         "team": team, "played": n,
@@ -178,6 +188,10 @@ def team_profile(team: str, matches: list[dict], as_of: datetime) -> dict:
         "last5_ga": round(l5_ga_sum / l5_n, 2) if l5_n else 0.0,
         "last5_ov25": l5_ov25,
         "last5_btts": l5_btts,
+        "last5_corners_for": round(l5_cor_f / l5_cor_n, 2) if l5_cor_n else None,
+        "last5_corners_against": round(l5_cor_a / l5_cor_n, 2) if l5_cor_n else None,
+        "last5_sot_for": round(l5_sot_f / l5_sot_n, 2) if l5_sot_n else None,
+        "last5_sot_against": round(l5_sot_a / l5_sot_n, 2) if l5_sot_n else None,
         "shots_for": round(acc["sh_for"] / n, 1), "shots_against": round(acc["sh_ag"] / n, 1),
         "sot_for": round(acc["sot_for"] / n, 1), "sot_against": round(acc["sot_ag"] / n, 1),
         "corners_for": round(acc["cor_for"] / cor_n, 2) if cor_n else 5.1,

@@ -12,6 +12,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 from . import value
+from ..sources import injuries
 
 SIGMA_SPREAD = 11.8  # Desviación típica histórica de margen en NBA
 SIGMA_TOTAL = 15.5   # Desviación típica histórica de total en NBA
@@ -73,6 +74,18 @@ def analyze_nba_match(fixture: dict, settings: dict) -> dict:
     home, away = fixture["home"], fixture["away"]
     odds = fixture.get("odds", {})
     pts_h, pts_a = estimate_nba_lambdas(odds)
+
+    # Ajuste por lesiones y ausencias confirmadas (ESPN NBA Injury Report)
+    inj_map = injuries.fetch_nba_injuries()
+    inj_home = injuries.get_team_injuries(home, inj_map)
+    inj_away = injuries.get_team_injuries(away, inj_map)
+    out_h = sum(1 for x in inj_home if x["status"].lower() in ("out", "doubtful"))
+    out_a = sum(1 for x in inj_away if x["status"].lower() in ("out", "doubtful"))
+    if out_h > 0:
+        pts_h = round(pts_h * max(0.92, 1.0 - 0.02 * min(out_h, 4)), 1)
+    if out_a > 0:
+        pts_a = round(pts_a * max(0.92, 1.0 - 0.02 * min(out_a, 4)), 1)
+
     proj_margin = pts_h - pts_a
     proj_total = pts_h + pts_a
 
@@ -181,8 +194,11 @@ def analyze_nba_match(fixture: dict, settings: dict) -> dict:
 
     # Evaluación cuantitativa de Player Props (Puntos, Rebotes y Asistencias por jugador)
     raw_props = fixture.get("player_props") or []
+    all_inj = inj_home + inj_away
     evaluated_props = []
     for pp in raw_props:
+        if injuries.is_player_out(pp["player"], all_inj):
+            continue
         oo, uo = pp["over_odds"], pp["under_odds"]
         if oo <= 1 or uo <= 1:
             continue
@@ -240,6 +256,9 @@ def analyze_nba_match(fixture: dict, settings: dict) -> dict:
         "Variabilidad en tiro exterior de 3 puntos (volumen y acierto de triples).",
     ]
 
+    if out_h > 0 or out_a > 0:
+        insights.append(f"🏥 Ajuste por Bajas Confirmadas: {home} ({out_h} Out/Doubtful) vs {away} ({out_a} Out/Doubtful). Proyecciones ajustadas y jugadores lesionados excluidos de Props.")
+
     return {
         "id": f"NBA-{fixture['kickoff'].strftime('%Y%m%d')}-{home.lower().replace(' ','_')}-{away.lower().replace(' ','_')}",
         "div": "NBA",
@@ -252,6 +271,7 @@ def analyze_nba_match(fixture: dict, settings: dict) -> dict:
         "lambda_home": pts_h,
         "lambda_away": pts_a,
         "sample": 15,
+        "injuries": {"home": inj_home, "away": inj_away},
         "probs": {
             "1x2": {
                 "H": prob_home_win(proj_margin),

@@ -545,12 +545,19 @@ function renderTodayMatches() {
         ? `Pts ${m.lambda_home.toFixed(1)} - ${m.lambda_away.toFixed(1)}`
         : `λ ${m.lambda_home.toFixed(2)} - ${m.lambda_away.toFixed(2)}`;
       const fp = m.opta_props;
+      const nbaInjH = (m.injuries?.home || []).filter(x => /out|doubt/i.test(x.status)).length;
+      const nbaInjA = (m.injuries?.away || []).filter(x => /out|doubt/i.test(x.status)).length;
+      const nbaInjBadge = (isNBA && (nbaInjH > 0 || nbaInjA > 0))
+        ? `<div style="font-size:11px;color:#f43f5e;padding:4px 8px;background:rgba(244,63,94,0.08);border-radius:6px;margin-top:4px">
+             🏥 <strong>Bajas NBA (Ajustadas):</strong> ${m.home} (${nbaInjH} Out) · ${m.away} (${nbaInjA} Out)
+           </div>`
+        : "";
       const miniPropsHTML = isNBA
         ? `<div style="font-size:11.5px;color:#94a3b8;display:flex;justify-content:space-between;padding:4px 8px;background:rgba(255,255,255,0.02);border-radius:6px">
              <span>⏱️ Pace: <strong>${m.nba_breakdown?.pace ?? "—"}</strong></span>
              <span>🏀 Total Proy: <strong>${(m.lambda_home + m.lambda_away).toFixed(1)} pts</strong></span>
              <span>⛹️ Props: <strong>${(m.player_props || []).length} jugadores</strong></span>
-           </div>`
+           </div>${nbaInjBadge}`
         : (fp
         ? `<div style="font-size:11.5px;color:#94a3b8;display:flex;justify-content:space-between;padding:4px 8px;background:rgba(255,255,255,0.02);border-radius:6px">
              <span>🎯 SOT: <strong>${fp.sot.total}</strong> (${fmtPct(fp.sot.p_over_85, 0)} O8.5)</span>

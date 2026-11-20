@@ -68,21 +68,27 @@ def _selection(market: str, sel: str, name: str, p_model: float, p_fair: float |
 
 
 def opta_props(home: str, away: str, ph: dict, pa: dict, lh: float, la: float) -> dict:
-    """Proyecciones Poisson Opta para Córners, Tiros al Arco (SOT), Faltas y Tarjetas."""
-    # Córners esperados ajustados por caudal ofensivo (lh / la)
-    ch_for = ph.get("corners_for") or (3.6 + 1.15 * lh)
-    ca_ag = pa.get("corners_against") or (3.4 + 1.05 * lh)
-    ca_for = pa.get("corners_for") or (3.2 + 1.10 * la)
-    ch_ag = ph.get("corners_against") or (3.3 + 1.05 * la)
+    """Proyecciones Poisson Opta para Córners, Tiros al Arco (SOT), Faltas y Tarjetas (con ajuste por actualidad últimos 5 partidos)."""
+    def _recency(season_val, l5_val, fallback):
+        base = season_val if season_val is not None else fallback
+        if l5_val is not None:
+            return 0.55 * base + 0.45 * l5_val
+        return base
+
+    # Córners esperados ajustados por actualidad (55% temporada + 45% últimos 5)
+    ch_for = _recency(ph.get("corners_for"), ph.get("last5_corners_for"), 3.6 + 1.15 * lh)
+    ca_ag = _recency(pa.get("corners_against"), pa.get("last5_corners_against"), 3.4 + 1.05 * lh)
+    ca_for = _recency(pa.get("corners_for"), pa.get("last5_corners_for"), 3.2 + 1.10 * la)
+    ch_ag = _recency(ph.get("corners_against"), ph.get("last5_corners_against"), 3.3 + 1.05 * la)
     cor_h = round(0.55 * ch_for + 0.45 * ca_ag, 2)
     cor_a = round(0.55 * ca_for + 0.45 * ch_ag, 2)
     cor_tot = round(cor_h + cor_a, 2)
 
-    # Tiros al Arco (Shots on Target - SOT)
-    sh_for = ph.get("sot_for") or (2.4 + 1.55 * lh)
-    sa_ag = pa.get("sot_against") or (2.3 + 1.45 * lh)
-    sa_for = pa.get("sot_for") or (2.1 + 1.50 * la)
-    sh_ag = ph.get("sot_against") or (2.2 + 1.45 * la)
+    # Tiros al Arco (Shots on Target - SOT) ajustados por actualidad
+    sh_for = _recency(ph.get("sot_for"), ph.get("last5_sot_for"), 2.4 + 1.55 * lh)
+    sa_ag = _recency(pa.get("sot_against"), pa.get("last5_sot_against"), 2.3 + 1.45 * lh)
+    sa_for = _recency(pa.get("sot_for"), pa.get("last5_sot_for"), 2.1 + 1.50 * la)
+    sh_ag = _recency(ph.get("sot_against"), ph.get("last5_sot_against"), 2.2 + 1.45 * la)
     sot_h = round(0.55 * sh_for + 0.45 * sa_ag, 2)
     sot_a = round(0.55 * sa_for + 0.45 * sh_ag, 2)
     sot_tot = round(sot_h + sot_a, 2)
