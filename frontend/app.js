@@ -545,11 +545,11 @@ function renderTodayMatches() {
         ? `Pts ${m.lambda_home.toFixed(1)} - ${m.lambda_away.toFixed(1)}`
         : `λ ${m.lambda_home.toFixed(2)} - ${m.lambda_away.toFixed(2)}`;
       const fp = m.opta_props;
-      const nbaInjH = (m.injuries?.home || []).filter(x => /out|doubt/i.test(x.status)).length;
-      const nbaInjA = (m.injuries?.away || []).filter(x => /out|doubt/i.test(x.status)).length;
-      const nbaInjBadge = (isNBA && (nbaInjH > 0 || nbaInjA > 0))
+      const injH = (m.injuries?.home || []).filter(x => /out|doubt|missing|suspend/i.test(`${x.status} ${x.reason || ""}`)).length;
+      const injA = (m.injuries?.away || []).filter(x => /out|doubt|missing|suspend/i.test(`${x.status} ${x.reason || ""}`)).length;
+      const injBadge = (injH > 0 || injA > 0)
         ? `<div style="font-size:11px;color:#f43f5e;padding:4px 8px;background:rgba(244,63,94,0.08);border-radius:6px;margin-top:4px">
-             🏥 <strong>Bajas NBA (Ajustadas):</strong> ${m.home} (${nbaInjH} Out) · ${m.away} (${nbaInjA} Out)
+             🏥 <strong>Bajas Confirmadas (Ajustadas):</strong> ${m.home} (${injH}) · ${m.away} (${injA})
            </div>`
         : "";
       const miniPropsHTML = isNBA
@@ -557,7 +557,7 @@ function renderTodayMatches() {
              <span>⏱️ Pace: <strong>${m.nba_breakdown?.pace ?? "—"}</strong></span>
              <span>🏀 Total Proy: <strong>${(m.lambda_home + m.lambda_away).toFixed(1)} pts</strong></span>
              <span>⛹️ Props: <strong>${(m.player_props || []).length} jugadores</strong></span>
-           </div>${nbaInjBadge}`
+           </div>${injBadge}`
         : (fp
         ? `<div style="font-size:11.5px;color:#94a3b8;display:flex;justify-content:space-between;padding:4px 8px;background:rgba(255,255,255,0.02);border-radius:6px">
              <span>🎯 SOT: <strong>${fp.sot.total}</strong> (${fmtPct(fp.sot.p_over_85, 0)} O8.5)</span>
@@ -569,7 +569,7 @@ function renderTodayMatches() {
              <span>📊 Últ. 5 Loc: <strong>${m.profiles.home.last5_ov25}/${m.profiles.home.last5_n} +2.5</strong> · ${m.profiles.home.last5_btts}/${m.profiles.home.last5_n} BTTS</span>
              <span>Vis: <strong>${m.profiles.away.last5_ov25}/${m.profiles.away.last5_n} +2.5</strong> · ${m.profiles.away.last5_btts}/${m.profiles.away.last5_n} BTTS</span>
            </div>`
-        : "");
+        : "") + injBadge;
       const probBarHTML = isNBA
         ? `<div class="prob-bar" style="grid-template-columns:repeat(2,1fr)">
              <div class="prob-cell">1 Local (${m.home})<strong>${fmtPct(p1x2.H)}</strong></div>
@@ -647,7 +647,21 @@ function openMatchModal(m) {
   STATE.selectedMatch = m;
   const modal = document.getElementById("match-modal");
   const body = document.getElementById("modal-body");
-  body.innerHTML = renderOptaExecutiveReport(m, true);
+  const injH = m.injuries?.home || [];
+  const injA = m.injuries?.away || [];
+  const fmtInj = (list) => list.length
+    ? list.slice(0, 8).map(x => `<div style="font-size:12px;margin-bottom:3px">• <strong>${x.player}</strong> <span style="color:#f43f5e">[${x.status}]</span> <span style="color:#94a3b8">${x.reason || x.comment || ""}</span></div>`).join("")
+    : `<div style="font-size:12px;color:#64748b">Sin bajas reportadas</div>`;
+  const injSection = (injH.length || injA.length)
+    ? `<div style="background:rgba(244,63,94,0.08);border:1px solid rgba(244,63,94,0.3);border-radius:10px;padding:14px;margin-bottom:16px">
+         <div style="font-weight:700;font-size:13.5px;color:#f43f5e;margin-bottom:8px">🏥 Parte Médico y Ausencias Confirmadas (Ajustado en el Modelo)</div>
+         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+           <div><div style="font-size:12px;font-weight:700;color:#e2e8f0;margin-bottom:4px">${m.home} (${injH.length})</div>${fmtInj(injH)}</div>
+           <div><div style="font-size:12px;font-weight:700;color:#e2e8f0;margin-bottom:4px">${m.away} (${injA.length})</div>${fmtInj(injA)}</div>
+         </div>
+       </div>`
+    : "";
+  body.innerHTML = injSection + renderOptaExecutiveReport(m, true);
   modal.classList.remove("hidden");
 
   body.querySelectorAll(".btn-save-pick").forEach((btn) => {

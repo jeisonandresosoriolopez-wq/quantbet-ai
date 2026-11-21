@@ -1,10 +1,11 @@
 """Pipeline de análisis de un partido: modelo -> mercado -> EV -> stake -> riesgos."""
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from . import poisson, value
 from .ratings import Ratings
+from ..sources import injuries
 
 SEL_NAMES = {
     "1x2": {"H": "Local", "D": "Empate", "A": "Visitante"},
@@ -140,6 +141,26 @@ def analyze(fixture: dict, ratings: Ratings, profiles: dict[str, dict], settings
     home, away = fixture["home"], fixture["away"]
     ph, pa = profiles.get(home, {}), profiles.get(away, {})
     lh, la = override_lambdas if override_lambdas else ratings.lambdas(home, away)
+
+    # Lesiones y suspensiones reales (API-Football) solo para partidos próximos (-1 a +3 días) para cuidar cuota
+    inj_home, inj_away = [], []
+    ko = fixture.get("kickoff")
+    if isinstance(ko, datetime):
+        now_utc = datetime.now(timezone.utc)
+        ko_utc = ko.astimezone(timezone.utc) if ko.tzinfo else ko.replace(tzinfo=timezone.utc)
+        if timedelta(days=-1) <= (ko_utc - now_utc) <= timedelta(days=3):
+            inj_home = injuries.get_football_team_injuries(home, ko_utc)
+            inj_away = injuries.get_football_team_injuries(away, ko_utc)
+
+    out_h = sum(1 for x in inj_home if "missing" in x.get("status", "").lower() or "suspend" in x.get("reason", "").lower())
+    out_a = sum(1 for x in inj_away if "missing" in x.get("status", "").lower() or "suspend" in x.get("reason", "").lower())
+    if out_h > 0:
+        lh = round(lh * max(0.88, 1.0 - 0.025 * min(out_h, 4)), 3)
+        la = round(la * min(1.08, 1.0 + 0.015 * min(out_h, 4)), 3)
+    if out_a > 0:
+        la = round(la * max(0.88, 1.0 - 0.025 * min(out_a, 4)), 3)
+        lh = round(lh * min(1.08, 1.0 + 0.015 * min(out_a, 4)), 3)
+
     matrix = poisson.score_matrix(lh, la)
     probs = poisson.market_probs(matrix)
     diff = poisson.goal_diff_distribution(matrix)
@@ -210,6 +231,10 @@ def analyze(fixture: dict, ratings: Ratings, profiles: dict[str, dict], settings
     best_pick = max(priced, key=lambda s: s["ev"]) if priced else None
 
     ph, pa = profiles.get(home, {}), profiles.get(away, {})
+    match_insights = insights(ph, pa, lh, la)
+    if out_h > 0 or out_a > 0:
+        match_insights.insert(0, f"🏥 Bajas Confirmadas (API-Football): {home} ({out_h} ausencias) vs {away} ({out_a} ausencias). Goles esperados ajustados automáticamente.")
+
     return {
         "id": match_id(fixture),
         "div": fixture["div"],
@@ -228,8 +253,9 @@ def analyze(fixture: dict, ratings: Ratings, profiles: dict[str, dict], settings
         "top_scores": probs["top_scores"],
         "matrix": [row[:6] for row in matrix[:6]],
         "profiles": {"home": ph, "away": pa},
+        "injuries": {"home": inj_home, "away": inj_away},
         "opta_props": opta_props(home, away, ph, pa, lh, la),
-        "insights": insights(ph, pa, lh, la),
+        "insights": match_insights,
         "selections": selections,
         "best_pick": best_pick,
         "has_value": any(s["label"] == "VALUE" for s in selections),

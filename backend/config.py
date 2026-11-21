@@ -31,6 +31,7 @@ def _load_env() -> None:
 _load_env()
 
 ODDS_API_KEY = os.environ.get("ODDS_API_KEY", "").strip()
+API_FOOTBALL_KEY = os.environ.get("API_FOOTBALL_KEY", "").strip()
 ODDS_API_REGION = os.environ.get("ODDS_API_REGION", "eu").strip() or "eu"
 LOCAL_TZ = os.environ.get("LOCAL_TZ", "America/Bogota")
 SOURCE_TZ = "Europe/London"  # football-data.co.uk publica horas del Reino Unido
