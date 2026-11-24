@@ -185,6 +185,7 @@ def fetch_football_injuries(date_str: str, force: bool = False) -> dict[str, lis
         raw = json.loads(text)
         if raw.get("errors"):
             log.warning("API-Football devolvió error para %s: %s", date_str, raw.get("errors"))
+            _fb_inj_mem_cache[date_str] = (now, {})
             return {}
         cache_file.write_text(text, encoding="utf-8")
         parsed = _parse_fb_injuries(raw)

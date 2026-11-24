@@ -30,6 +30,18 @@ UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/130.0 
 
 # URLs de torneos en Wplay.co asociados a cada código de competición
 WPLAY_TOURNAMENTS: dict[str, list[str]] = {
+    "UCL": [
+        "/es/t/19161/UEFA-Champions-League",
+        "/es/t/48298/UEFA-Champions-League",
+    ],
+    "UEL": [
+        "/es/t/19162/UEFA-Liga-Europa",
+        "/es/t/48299/UEFA-Liga-Europa",
+    ],
+    "LIB": [
+        "/es/t/19462/Copa-Libertadores",
+        "/es/t/49083/Copa-Libertadores",
+    ],
     "INT_FR": [
         "/es/t/19287/Amistosos",
         "/es/t/2412787/Elite-International-Friendlies",
